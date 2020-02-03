@@ -1,8 +1,16 @@
 package com.androidthings.helloworld;
 
 import android.app.Activity;
+import android.content.Context;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
 
 import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.PeripheralManager;
@@ -28,6 +36,10 @@ public class MainActivity extends Activity {
 
     private Gpio mLedPin;
 
+    TextView txtIP;
+    EditText txtUserName;
+    EditText txtPassword;
+    Button btnConnect;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,8 +49,21 @@ public class MainActivity extends Activity {
         initUART();
         setupBlinkyTimer();
         startMQTT();
+        initUI();
     }
 
+    private void initUI(){
+        txtIP = findViewById(R.id.txtIP);
+        txtUserName = findViewById(R.id.txtUserName);
+        txtPassword = findViewById(R.id.txtPassword);
+        btnConnect = findViewById(R.id.btnConnect);
+        btnConnect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                connectWifiNetwork();
+            }
+        });
+    }
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -78,6 +103,13 @@ public class MainActivity extends Activity {
                 }catch (Exception e){
                     Log.d("LedBlinky", "Error in toggling pin");
                 }
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        txtIP.setText(getWifiIPAddress(MainActivity.this));
+                    }
+                });
             }
         };
         mTimer.schedule(mTask, 2000, 1000);
@@ -226,5 +258,30 @@ public class MainActivity extends Activity {
         }
     }
 
+
+    private String getWifiIPAddress(Context context){
+
+        WifiManager wifiManager = (WifiManager) (context.getSystemService(context.WIFI_SERVICE));
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        int ipAddress = wifiInfo.getIpAddress();
+        String ipString = String.format("%d.%d.%d.%d", (ipAddress & 0xff), (ipAddress >> 8 & 0xff), (ipAddress >> 16 & 0xff), (ipAddress >> 24 & 0xff));
+        return ipString;
+    }
+
+    private void connectWifiNetwork(){
+        String userName = txtUserName.getText().toString();
+        String passWord = txtPassword.getText().toString();
+        WifiConfiguration wifiConfig = new WifiConfiguration();
+        wifiConfig.SSID = String.format("\"%s\"", userName);
+        wifiConfig.preSharedKey = String.format("\"%s\"", passWord);
+
+
+        WifiManager wifiManager = (WifiManager)getSystemService(WIFI_SERVICE);
+        int netId = wifiManager.addNetwork(wifiConfig);
+
+        wifiManager.disconnect();
+        wifiManager.enableNetwork(netId, true);
+        wifiManager.reconnect();
+    }
 
 }
